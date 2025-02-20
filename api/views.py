@@ -6,6 +6,7 @@ from django.core.files.base import ContentFile
 import os
 import requests
 from pix2text import Pix2Text
+import re
 
 OLLAMA_URL = "http://localhost:11434/api/generate"  # Ollama API URL
 model= "t1c/deepseek-math-7b-rl"
@@ -44,7 +45,7 @@ def upload_image(request):
         print("📡 Sending equation to Ollama...")
         ollama_response = requests.post(OLLAMA_URL, json={
             "model": "t1c/deepseek-math-7b-rl",
-            "prompt": f"Solve: {extracted_equation}",
+            "prompt": f"Solve & Equations should be in latex format: {extracted_equation}",
             "stream": False
         })
 
@@ -55,9 +56,18 @@ def upload_image(request):
             ollama_output = "Error: Unable to process with Ollama"
             print(f"❌ Ollama Error: {ollama_response.text}")
 
+        def format_latex_response(response_text):
+            parts = re.split(r"(\$\$.*?\$\$|\$.*?\$)", response_text)
+            formatted_lines = [
+                part.strip().replace("$", "").replace("$$", "") if part.startswith("$$") else part.strip()
+                for part in parts if part.strip()
+            ]
+            return formatted_lines
+
+
         return Response({
             'equation': extracted_equation,
-            'solution': ollama_output.replace("$$", "\n")
+            'solution': format_latex_response(ollama_output)
         })
 
     except Exception as e:
