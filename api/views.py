@@ -45,7 +45,7 @@ def upload_image(request):
         print("📡 Sending equation to Ollama...")
         ollama_response = requests.post(OLLAMA_URL, json={
             "model": "t1c/deepseek-math-7b-rl",
-            "prompt": f"Solve & Equations should be in latex format: {extracted_equation}",
+            "prompt": f"Solve it and Only give short explanation: {extracted_equation}",
             "stream": False
         })
 
@@ -56,12 +56,25 @@ def upload_image(request):
             ollama_output = "Error: Unable to process with Ollama"
             print(f"❌ Ollama Error: {ollama_response.text}")
 
+
         def format_latex_response(response_text):
             parts = re.split(r"(\$\$.*?\$\$|\$.*?\$)", response_text)
-            formatted_lines = [
-                part.strip().replace("$", "").replace("$$", "") if part.startswith("$$") else part.strip()
-                for part in parts if part.strip()
-            ]
+            formatted_lines = []
+            
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+                
+                if part.startswith("$$") and part.endswith("$$"):
+                    formatted_lines.append(part.replace("$$", "").strip())  # Block equation
+                elif part.startswith("$") and part.endswith("$"):
+                    formatted_lines.append(part.replace("$", "").strip())  # Inline equation
+                else:
+                    formatted_lines.append(f"\\text{{{part}}}")  # Normal text wrapped for spacing
+
+            return formatted_lines
+
             return formatted_lines
 
 
