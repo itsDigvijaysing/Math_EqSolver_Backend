@@ -8,8 +8,10 @@ import requests
 from pix2text import Pix2Text
 
 OLLAMA_URL = "http://localhost:11434/api/generate"  # Ollama API URL
-model= "mertbozkir/metamath-mistral-7b:Q4_0"
+model= "t1c/deepseek-math-7b-rl"
 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 @api_view(['POST'])
 def upload_image(request):
@@ -41,7 +43,7 @@ def upload_image(request):
         # Send the extracted equation to Ollama for solving
         print("📡 Sending equation to Ollama...")
         ollama_response = requests.post(OLLAMA_URL, json={
-            "model": "mertbozkir/metamath-mistral-7b:Q4_0",
+            "model": "t1c/deepseek-math-7b-rl",
             "prompt": f"Solve: {extracted_equation}",
             "stream": False
         })
@@ -55,7 +57,7 @@ def upload_image(request):
 
         return Response({
             'equation': extracted_equation,
-            'solution': ollama_output
+            'solution': ollama_output.replace("$$", "\n")
         })
 
     except Exception as e:
