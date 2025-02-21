@@ -9,31 +9,25 @@ from pix2text import Pix2Text
 import re
 
 OLLAMA_URL = "http://localhost:11434/api/generate"  # Ollama API URL
-model= "t1c/deepseek-math-7b-rl"
+model = "t1c/deepseek-math-7b-rl"
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 @api_view(['POST'])
 def upload_image(request):
-    if 'image' not in request.FILES:
-        print("❌ No image uploaded!")
-        return Response({'error': 'No image uploaded'}, status=400)
+    text_input = request.data.get('text', None)
+    image = request.FILES.get('image', None)
+    extracted_equation = None  # Initialize variable
 
-    image = request.FILES['image']
-    file_path = default_storage.save('uploads/' + image.name, ContentFile(image.read()))
-    full_file_path = os.path.join('media', file_path)
+    if image:
+        file_path = default_storage.save('uploads/' + image.name, ContentFile(image.read()))
+        full_file_path = os.path.join('media', file_path)
+        print(f"📌 Image saved at: {full_file_path}")  # Debugging
 
-    print(f"📌 Image saved at: {full_file_path}")  # Debugging
-
-    try:
-        # Load Pix2Text model
+        # Process the image
         print("🚀 Loading Pix2Text model...")
         p2t = Pix2Text.from_config()
-        print("✅ Pix2Text model loaded successfully!")
-
-        # Recognize the equation from the image
-        print("🔍 Running Pix2Text recognition...")
         extracted_equation = p2t.recognize(full_file_path, file_type='text_formula')
         print(f"✅ Extracted Equation: {extracted_equation}")
 
@@ -41,8 +35,15 @@ def upload_image(request):
             print("⚠️ WARNING: No equation extracted from image!")
             return Response({'error': 'No equation extracted from image'}, status=400)
 
-        # Send the extracted equation to Ollama for solving
-        print("📡 Sending equation to Ollama...")
+    elif text_input:
+        extracted_equation = text_input.strip()  # Use text input directly
+        print(f"📜 Text Input Received: {extracted_equation}")
+
+    else:
+        return Response({'error': 'No valid input provided (image or text required).'}, status=400)
+
+    try:
+        print("📡 Sending query to Ollama...")
         ollama_response = requests.post(OLLAMA_URL, json={
             "model": "t1c/deepseek-math-7b-rl",
             "prompt": f"Solve it and Only give short explanation: {extracted_equation}",
@@ -56,11 +57,10 @@ def upload_image(request):
             ollama_output = "Error: Unable to process with Ollama"
             print(f"❌ Ollama Error: {ollama_response.text}")
 
-
         def format_latex_response(response_text):
             parts = re.split(r"(\$\$.*?\$\$|\$.*?\$)", response_text)
             formatted_lines = []
-            
+
             for part in parts:
                 part = part.strip()
                 if not part:
@@ -75,9 +75,6 @@ def upload_image(request):
 
             return formatted_lines
 
-            return formatted_lines
-
-
         return Response({
             'equation': extracted_equation,
             'solution': format_latex_response(ollama_output)
@@ -85,4 +82,4 @@ def upload_image(request):
 
     except Exception as e:
         print(f"❌ Error during processing: {str(e)}")
-        return Response({'error': f'Failed to process image: {str(e)}'}, status=500)
+        return Response({'error': f'Failed to process input: {str(e)}'}, status=500)
