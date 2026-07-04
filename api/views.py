@@ -12,9 +12,14 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "t1c/deepseek-math-7b-rl")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
-print("Loading Pix2Text model...")
-P2T = Pix2Text.from_config()
-print("Pix2Text model ready.")
+_p2t = None
+
+
+def get_p2t():
+    global _p2t
+    if _p2t is None:
+        _p2t = Pix2Text.from_config()
+    return _p2t
 
 @api_view(['POST'])
 def upload_image(request):
@@ -25,7 +30,7 @@ def upload_image(request):
     if image:
         file_path = default_storage.save('uploads/' + image.name, ContentFile(image.read()))
         full_file_path = os.path.join('media', file_path)
-        extracted_equation = P2T.recognize(full_file_path, file_type='text_formula')
+        extracted_equation = get_p2t().recognize(full_file_path, file_type='text_formula')
 
         if not extracted_equation:
             return Response({'error': 'No equation extracted from image'}, status=400)
